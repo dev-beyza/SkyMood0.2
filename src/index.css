@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply m-0 p-0 box-border antialiased;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Saatlik hava durumu için yatay kaydırma çubuğunu gizler */
+.hide-scrollbar::-webkit-scrollbar { 
+  display: none; 
+}
