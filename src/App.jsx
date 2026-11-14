@@ -7,7 +7,11 @@ import {
 import { Search, MapPin, Star, ArrowLeft, X, GripVertical } from "lucide-react"; 
 
 // --- FAVORİ KARTI BİLEŞENİ ---
-function FavoriteCard({ city, onClick, onRemove, onDragStart, onDragEnter, onDragEnd }) {
+function FavoriteCard({ 
+  city, index, onClick, onRemove, 
+  onDragStart, onDragEnter, onDragEnd,
+  onTouchStart, onTouchMove, onTouchEnd
+}) {
   const [weather, setWeather] = useState(null);
 
   useEffect(() => {
@@ -36,7 +40,8 @@ function FavoriteCard({ city, onClick, onRemove, onDragStart, onDragEnter, onDra
 
   return (
     <div 
-      className="relative w-full mb-4 group"
+      className="fav-card relative w-full mb-4 group"
+      data-index={index}
       draggable
       onDragStart={onDragStart}
       onDragEnter={onDragEnter}
@@ -45,24 +50,34 @@ function FavoriteCard({ city, onClick, onRemove, onDragStart, onDragEnter, onDra
     >
       <button 
         onClick={() => onClick(city)} 
-        className="w-full bg-black/20 backdrop-blur-xl border border-white/10 rounded-[1.5rem] p-5 pl-3 flex items-center justify-between shadow-lg hover:bg-black/30 transition-all text-left active:scale-95 cursor-grab active:cursor-grabbing"
+        className="w-full bg-black/20 backdrop-blur-xl border border-white/10 rounded-[1.5rem] p-5 pl-2 flex items-center justify-between shadow-lg hover:bg-black/30 transition-all text-left active:scale-95"
       >
-        {/* iOS Tarzı Sürükleme Tutamacı (Grip) */}
         <div className="flex items-center gap-2 flex-1 pr-4">
-          <GripVertical size={20} className="text-white/20 shrink-0" />
+          
+          {/* MOBİL VE MASAÜSTÜ UYUMLU TUTMA NOKTASI (GRIP) */}
+          <div 
+            className="p-3 -ml-2 touch-none cursor-grab active:cursor-grabbing"
+            onTouchStart={(e) => { e.stopPropagation(); onTouchStart(e, index); }}
+            onTouchMove={(e) => { e.stopPropagation(); onTouchMove(e); }}
+            onTouchEnd={(e) => { e.stopPropagation(); onTouchEnd(e); }}
+            onClick={(e) => e.stopPropagation()} // Tıklamayı engeller, sadece sürüklemeye izin verir
+          >
+            <GripVertical size={24} className="text-white/30 shrink-0 hover:text-white/60 transition-colors" />
+          </div>
+          
           <div>
             <div className="text-white text-[17px] font-bold drop-shadow-md tracking-wide leading-snug">{city}</div>
             <div className="text-white/80 text-[14px] font-semibold mt-1 drop-shadow-sm">{wmo.label}</div>
           </div>
         </div>
-
-        <div className="flex items-center gap-4 pr-8 shrink-0">
+        
+        <div className="flex items-center gap-4 pr-10 shrink-0">
           <WeatherIcon size={38} strokeWidth={2} className={`drop-shadow-lg ${wmo.color}`} />
           <span className="text-white text-[2.5rem] font-light drop-shadow-md">{currentTemp}°</span>
         </div>
       </button>
       
-      {/* Silme Butonu (Çarpı) */}
+      {/* Silme Butonu */}
       <button 
         onClick={(e) => { e.stopPropagation(); onRemove(city); }}
         className="absolute top-1/2 -translate-y-1/2 right-3 p-2 text-white/40 hover:text-red-400 transition-colors z-10 active:scale-90"
@@ -87,9 +102,9 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Sürükle Bırak (Drag & Drop) için Referanslar
-  const dragItem = useRef();
-  const dragOverItem = useRef();
+  // Masaüstü Drag & Drop ve Mobil Touch Referansları
+  const dragItem = useRef(null);
+  const dragOverItem = useRef(null);
 
   useEffect(() => {
     localStorage.setItem('skymood_favorites_v2', JSON.stringify(favorites));
@@ -178,15 +193,9 @@ function App() {
     setFavorites(favorites.filter(f => f !== cityToRemove));
   };
 
-  // --- Sürükle Bırak İşlevleri ---
-  const handleDragStart = (e, position) => {
-    dragItem.current = position;
-  };
-
-  const handleDragEnter = (e, position) => {
-    dragOverItem.current = position;
-  };
-
+  // --- 1. MASAÜSTÜ SÜRÜKLE BIRAK ---
+  const handleDragStart = (e, position) => { dragItem.current = position; };
+  const handleDragEnter = (e, position) => { dragOverItem.current = position; };
   const handleDrop = () => {
     if (dragItem.current !== null && dragOverItem.current !== null) {
       const copyListItems = [...favorites];
@@ -197,6 +206,36 @@ function App() {
       dragOverItem.current = null;
       setFavorites(copyListItems);
     }
+  };
+
+  // --- 2. MOBİL DOKUNMATİK (TOUCH) SÜRÜKLE BIRAK ---
+  const handleTouchStart = (e, index) => {
+    dragItem.current = index;
+  };
+
+  const handleTouchMove = (e) => {
+    if (dragItem.current === null) return;
+    
+    const touchLocation = e.targetTouches[0];
+    const element = document.elementFromPoint(touchLocation.clientX, touchLocation.clientY);
+    if (!element) return;
+
+    const card = element.closest('.fav-card');
+    if (card) {
+      const targetIndex = parseInt(card.getAttribute('data-index'), 10);
+      if (!isNaN(targetIndex) && targetIndex !== dragItem.current) {
+        const copyListItems = [...favorites];
+        const dragItemContent = copyListItems[dragItem.current];
+        copyListItems.splice(dragItem.current, 1);
+        copyListItems.splice(targetIndex, 0, dragItemContent);
+        dragItem.current = targetIndex;
+        setFavorites(copyListItems);
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    dragItem.current = null;
   };
 
   const { current, daily, hourly } = weatherData || {};
@@ -216,7 +255,7 @@ function App() {
         </button>
       </div>
 
-      {/* 2. ANA EKRAN */}
+      {/* 2. ANA EKRAN (ARAMA VE FAVORİLER) */}
       {currentScreen === 'home' && (
         <div className="w-full max-w-md pb-12 flex flex-col gap-3 animate-in fade-in zoom-in-95 duration-500">
           
@@ -248,11 +287,15 @@ function App() {
               <FavoriteCard 
                 key={city} 
                 city={city} 
+                index={index}
                 onClick={getWeatherData} 
                 onRemove={removeFavorite}
                 onDragStart={(e) => handleDragStart(e, index)}
                 onDragEnter={(e) => handleDragEnter(e, index)}
                 onDragEnd={handleDrop}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
               />
             ))
           ) : (
@@ -305,7 +348,10 @@ function App() {
               Y: {details.todayMax}° <span className="mx-2 opacity-40">|</span> D: {details.todayMin}° <span className="mx-2 opacity-40">|</span> Hissedilen: {Math.round(current.apparent_temperature)}°
             </p>
 
-            <p className="text-[16px] text-white/95 font-semibold leading-relaxed max-w-[280px] mb-8 drop-shadow-sm">{details.comparisonText}</p>
+            <p className="text-[16px] text-white/95 font-semibold leading-relaxed max-w-[280px] mb-8 drop-shadow-sm">
+              {details.comparisonText} <br/>
+              <span className="text-[14px] text-white/60 font-medium">{details.comparisonDetail}</span>
+            </p>
 
             <div className="flex w-full justify-between px-1 gap-3 mb-8">
               <div className="flex flex-col items-center bg-black/30 rounded-[1.25rem] py-4 w-1/3 border border-white/5 shadow-inner">

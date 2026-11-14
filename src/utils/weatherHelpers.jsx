@@ -20,20 +20,17 @@ export const getWMOInfo = (code, isDay = 1) => {
   return { label: "Bilinmeyen", Icon: Cloud, color: "text-slate-200" };
 };
 
-// Gözü Yormayan, Derin ve Tok Arka Plan Renkleri (Tam Kontrast)
 export const getDynamicBackground = (code, isDay) => {
   if (isDay === 0) {
-    // GECE: Göz dinlendiren derin karanlık tonlar
     if (code === 0 || code === 1) return "bg-gradient-to-br from-slate-900 via-indigo-950 to-black"; 
     if (code >= 51 && code <= 82) return "bg-gradient-to-br from-slate-900 via-slate-800 to-black"; 
     return "bg-gradient-to-br from-slate-800 via-slate-900 to-black"; 
   } else {
-    // GÜNDÜZ: Beyaz yazıların patlamasını sağlayan tok, doygun tonlar
-    if (code === 0 || code === 1) return "bg-gradient-to-br from-blue-700 via-blue-800 to-slate-900"; // Açık Hava (Derin Mavi)
-    if (code === 2 || code === 3) return "bg-gradient-to-br from-slate-600 via-slate-700 to-slate-800"; // Bulutlu (Tok Gri)
-    if (code >= 51 && code <= 82) return "bg-gradient-to-br from-slate-700 via-slate-800 to-gray-900"; // Yağmurlu (Koyu Gri)
-    if (code >= 71 && code <= 77) return "bg-gradient-to-br from-slate-500 via-slate-400 to-slate-600"; // Karlı (Buz Grisi)
-    return "bg-gradient-to-br from-blue-800 via-indigo-900 to-slate-900"; // Varsayılan
+    if (code === 0 || code === 1) return "bg-gradient-to-br from-blue-700 via-blue-800 to-slate-900"; 
+    if (code === 2 || code === 3) return "bg-gradient-to-br from-slate-600 via-slate-700 to-slate-800"; 
+    if (code >= 51 && code <= 82) return "bg-gradient-to-br from-slate-700 via-slate-800 to-gray-900"; 
+    if (code >= 71 && code <= 77) return "bg-gradient-to-br from-slate-500 via-slate-400 to-slate-600"; 
+    return "bg-gradient-to-br from-blue-800 via-indigo-900 to-slate-900"; 
   }
 };
 
@@ -55,7 +52,10 @@ export const getWeatherDetails = (current, daily) => {
     if (diff < 0) return `${Math.abs(diff)}° daha serin`;
     return "hemen hemen aynı";
   };
-  const comparisonText = `Düne göre ${formatDiff(diffYesterday)} (dün ${yesterdayMin}–${yesterdayMax}°)`;
+  
+  // METİNLER İKİYE BÖLÜNDÜ
+  const comparisonText = `Düne göre ${formatDiff(diffYesterday)}`;
+  const comparisonDetail = `(dün ${yesterdayMin}–${yesterdayMax}°)`;
 
   let advice = "";
   let AdviceIcon = Sun;
@@ -76,7 +76,7 @@ export const getWeatherDetails = (current, daily) => {
 
   return { 
     condition: wmoInfo.label, Icon: wmoInfo.Icon, iconColor: wmoInfo.color, 
-    advice, AdviceIcon, comparisonText, bgStyle, todayMin, todayMax
+    advice, AdviceIcon, comparisonText, comparisonDetail, bgStyle, todayMin, todayMax
   };
 };
 
