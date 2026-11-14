@@ -53,14 +53,12 @@ function FavoriteCard({
         className="w-full bg-black/20 backdrop-blur-xl border border-white/10 rounded-[1.5rem] p-5 pl-2 flex items-center justify-between shadow-lg hover:bg-black/30 transition-all text-left active:scale-95"
       >
         <div className="flex items-center gap-2 flex-1 pr-4">
-          
-          {/* MOBİL VE MASAÜSTÜ UYUMLU TUTMA NOKTASI (GRIP) */}
           <div 
             className="p-3 -ml-2 touch-none cursor-grab active:cursor-grabbing"
             onTouchStart={(e) => { e.stopPropagation(); onTouchStart(e, index); }}
             onTouchMove={(e) => { e.stopPropagation(); onTouchMove(e); }}
             onTouchEnd={(e) => { e.stopPropagation(); onTouchEnd(e); }}
-            onClick={(e) => e.stopPropagation()} // Tıklamayı engeller, sadece sürüklemeye izin verir
+            onClick={(e) => e.stopPropagation()} 
           >
             <GripVertical size={24} className="text-white/30 shrink-0 hover:text-white/60 transition-colors" />
           </div>
@@ -96,13 +94,13 @@ function App() {
   const [searchTerm, setSearchTerm] = useState("");
   const [displayTitle, setDisplayTitle] = useState("İstanbul");
   const [isUserLocation, setIsUserLocation] = useState(false);
+  const [searchError, setSearchError] = useState(""); // YENİ: Hata mesajı state'i
 
   const [favorites, setFavorites] = useState(() => {
     const saved = localStorage.getItem('skymood_favorites_v2');
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Masaüstü Drag & Drop ve Mobil Touch Referansları
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
 
@@ -115,17 +113,32 @@ function App() {
   }, []);
 
   const getWeatherData = async (city, isInitial = false) => {
+    if(!city || !city.trim()) return;
+    
     setLoading(true);
     setIsUserLocation(false);
+    setSearchError(""); // Yeni aramada eski hatayı temizle
+
     if (!isInitial) setCurrentScreen('details'); 
 
     const locationData = await fetchCoordinates(city);
     if (locationData) {
       const data = await fetchWeather(locationData.latitude, locationData.longitude);
-      setWeatherData(data);
-      setDisplayTitle(locationData.name);
+      if (data) {
+        setWeatherData(data);
+        setDisplayTitle(locationData.name);
+      } else {
+        if (!isInitial) {
+          setCurrentScreen('home');
+          setSearchError("Hava durumu verisine ulaşılamadı. Lütfen tekrar deneyin.");
+        }
+      }
     } else {
-      if (!isInitial) setCurrentScreen('home'); 
+      if (!isInitial) {
+        setCurrentScreen('home'); 
+        // Şehir bulunamadığında verilecek hata mesajı
+        setSearchError(`"${city}" adında bir konum bulunamadı. Lütfen yazımı kontrol edin.`);
+      }
     }
     setLoading(false);
   };
@@ -135,6 +148,7 @@ function App() {
       setLoading(true);
       setCurrentScreen('details');
       setIsUserLocation(true);
+      setSearchError(""); 
       
       navigator.geolocation.getCurrentPosition(
         async (position) => {
@@ -169,8 +183,11 @@ function App() {
         () => {
           setLoading(false);
           setCurrentScreen('home');
+          setSearchError("Konum izni alınamadı veya konum bulunamadı.");
         }
       );
+    } else {
+      setSearchError("Cihazınız konum özelliğini desteklemiyor.");
     }
   };
 
@@ -193,7 +210,6 @@ function App() {
     setFavorites(favorites.filter(f => f !== cityToRemove));
   };
 
-  // --- 1. MASAÜSTÜ SÜRÜKLE BIRAK ---
   const handleDragStart = (e, position) => { dragItem.current = position; };
   const handleDragEnter = (e, position) => { dragOverItem.current = position; };
   const handleDrop = () => {
@@ -208,18 +224,12 @@ function App() {
     }
   };
 
-  // --- 2. MOBİL DOKUNMATİK (TOUCH) SÜRÜKLE BIRAK ---
-  const handleTouchStart = (e, index) => {
-    dragItem.current = index;
-  };
-
+  const handleTouchStart = (e, index) => { dragItem.current = index; };
   const handleTouchMove = (e) => {
     if (dragItem.current === null) return;
-    
     const touchLocation = e.targetTouches[0];
     const element = document.elementFromPoint(touchLocation.clientX, touchLocation.clientY);
     if (!element) return;
-
     const card = element.closest('.fav-card');
     if (card) {
       const targetIndex = parseInt(card.getAttribute('data-index'), 10);
@@ -233,10 +243,7 @@ function App() {
       }
     }
   };
-
-  const handleTouchEnd = () => {
-    dragItem.current = null;
-  };
+  const handleTouchEnd = () => { dragItem.current = null; };
 
   const { current, daily, hourly } = weatherData || {};
   const details = weatherData ? getWeatherDetails(current, daily) : null;
@@ -259,13 +266,16 @@ function App() {
       {currentScreen === 'home' && (
         <div className="w-full max-w-md pb-12 flex flex-col gap-3 animate-in fade-in zoom-in-95 duration-500">
           
-          <div className="w-full flex gap-3 mb-6">
+          <div className="w-full flex gap-3 mb-2">
             <div className="relative flex-1 bg-black/20 backdrop-blur-xl rounded-[1.5rem] shadow-lg border border-white/10 flex items-center px-5 py-4 focus-within:bg-black/30 transition-all">
               <input 
                 type="text" 
                 placeholder="Şehir veya ilçe arayın..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  if (searchError) setSearchError(""); // Yazmaya başlayınca hatayı temizle
+                }}
                 onKeyDown={handleSearch}
                 className="w-full bg-transparent outline-none text-white placeholder-white/60 text-[16px] font-semibold"
               />
@@ -273,12 +283,19 @@ function App() {
                 <Search size={24} strokeWidth={2.5} />
               </button>
             </div>
-            <button onClick={handleGetLocation} className="w-[60px] h-[60px] bg-black/20 backdrop-blur-xl rounded-[1.5rem] shadow-lg border border-white/10 flex items-center justify-center text-white/90 hover:bg-black/30 transition-colors hover:scale-105 active:scale-95">
+            <button onClick={handleGetLocation} className="w-[60px] h-[60px] bg-black/20 backdrop-blur-xl rounded-[1.5rem] shadow-lg border border-white/10 flex items-center justify-center text-white/90 hover:bg-black/30 transition-colors hover:scale-105 active:scale-95 shrink-0">
               <MapPin size={26} strokeWidth={2.5} />
             </button>
           </div>
 
-          <p className="text-[14px] font-bold tracking-[0.15em] text-white/90 mb-1 uppercase drop-shadow-md px-2">
+          {/* YENİ: ARAMA HATASI MESAJI KUTUSU */}
+          {searchError && (
+            <div className="w-full bg-red-900/40 backdrop-blur-md border border-red-500/30 text-white/90 px-5 py-3 rounded-[1.25rem] text-[14px] font-medium flex items-center text-center shadow-lg animate-in fade-in zoom-in-95 duration-300 mb-2">
+              <span className="w-full leading-relaxed drop-shadow-md">{searchError}</span>
+            </div>
+          )}
+
+          <p className="text-[14px] font-bold tracking-[0.15em] text-white/90 mb-1 uppercase drop-shadow-md px-2 mt-4">
             Favori Konumlar
           </p>
 
